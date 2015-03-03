@@ -123,6 +123,7 @@ def download_missing_files(res_folder, files_to_download):
                 downloaded_files += d_size
             old_size = new_size
             resize_thread_list(res_folder, thread_list, q)
+            time.sleep(0.5)
 
         for t in thread_list:
             t.join()
