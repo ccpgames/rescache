@@ -15,9 +15,21 @@ def get_url_root():
 
 
 def DownloadResourceFile(target_url, target_path):
-    contents = urllib2.urlopen(target_url)
-    with open(target_path, "wb") as f:
+    try:
+        contents = urllib2.urlopen(target_url)
+    except urllib2.URLError:
+        print "Downloading of %s failed" % target_url
+        return
+
+    temp_path = target_path + ".tmp"
+    with open(temp_path, "wb") as f:
         f.write(contents.read())
+
+    try:
+        os.rename(temp_path, target_path)
+    except OSError:
+        pass
+
 
 class DownloadThread(threading.Thread):
     def __init__(self, target_folder, file_queue):
