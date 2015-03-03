@@ -6,9 +6,7 @@ import Queue
 
 import progress
 
-DOWNLOAD_THREAD_MAX = 12
-DOWNLOAD_THREAD_MIN = 2
-
+DOWNLOAD_THREAD_COUNT = 12
 
 def get_url_root():
     return 'http://res.eveonline.ccpgames.com'
@@ -18,8 +16,7 @@ def DownloadResourceFile(target_url, target_path):
     try:
         contents = urllib2.urlopen(target_url)
     except urllib2.URLError:
-        print "Downloading of %s failed" % target_url
-        return
+        return False
 
     temp_path = target_path + ".tmp"
     with open(temp_path, "wb") as f:
@@ -30,13 +27,16 @@ def DownloadResourceFile(target_url, target_path):
     except OSError:
         pass
 
+    return True
+
 
 class DownloadThread(threading.Thread):
     def __init__(self, target_folder, file_queue):
         threading.Thread.__init__(self)
         self.target_folder = target_folder
         self.file_queue = file_queue
-        self.download_total = None
+        self.failed = 0
+        self.succeeded = 0
         self._stop = False
 
     def process_file(self, relative_file_path, target_folder):
@@ -53,7 +53,11 @@ class DownloadThread(threading.Thread):
                 os.makedirs(nested_target_dir)
             except OSError:
                 pass
-        DownloadResourceFile(target_url, target_path)
+
+        if DownloadResourceFile(target_url, target_path):
+            self.succeeded += 1
+        else:
+            self.failed += 1
 
     def stop(self):
         self._stop = True
@@ -73,46 +77,21 @@ class DownloadThread(threading.Thread):
             print traceback.format_exc(e)
 
 
-def should_use_minimal_threadcount():
-    return False
-
-
-def get_desired_download_thread_count():
-    now = time.time()
-    if now - get_desired_download_thread_count.last_check < 1.0:
-        return get_desired_download_thread_count.last_count
-    get_desired_download_thread_count.last_count = DOWNLOAD_THREAD_MAX
-    get_desired_download_thread_count.last_check = now
-    return get_desired_download_thread_count.last_count
-get_desired_download_thread_count.last_check = 0
-get_desired_download_thread_count.last_count = 0
-
-
-def resize_thread_list(res_folder, thread_list, file_queue):
-    no_current_threads = len(thread_list)
-    desired_no_threads = get_desired_download_thread_count()
-    while no_current_threads > desired_no_threads:
-        t = thread_list.pop()
-        t.stop()
-        t.join()
-        no_current_threads -= 1
-    while no_current_threads < desired_no_threads:
-        t = DownloadThread(res_folder, file_queue)
-        thread_list.append(t)
-        t.start()
-        no_current_threads += 1
-
-
 def download_missing_files(res_folder, files_to_download):
     q = Queue.Queue()
     for f in files_to_download:
         q.put(f)
 
-    thread_list = []
-
     downloaded_files = 0
     old_size = q.qsize()
     num_files = len(files_to_download)
+
+    thread_list = []
+
+    for i in range(DOWNLOAD_THREAD_COUNT):
+        t = DownloadThread(res_folder, q)
+        thread_list.append(t)
+        t.start()
 
     try:
         while not q.empty():
@@ -122,11 +101,18 @@ def download_missing_files(res_folder, files_to_download):
             if d_size:
                 downloaded_files += d_size
             old_size = new_size
-            resize_thread_list(res_folder, thread_list, q)
             time.sleep(0.5)
 
+        progress.clear()
+
+        num_failed = 0
+        num_succeeded = 0
         for t in thread_list:
             t.join()
+            num_failed += t.failed
+            num_succeeded += t.succeeded
+
+        return num_succeeded, num_failed
 
     except KeyboardInterrupt:
         progress.clear()
@@ -157,5 +143,6 @@ def scan_missing_files(index, res_folder):
 
 def download_cache(index, res_folder):
     missing_files = scan_missing_files(index, res_folder)
-    download_missing_files(res_folder, missing_files)
+    num_succeeded, num_failed = download_missing_files(res_folder, missing_files)
+    print "Downloaded %d files (%d failed)" % (num_succeeded, num_failed)
 

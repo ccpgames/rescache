@@ -4,11 +4,16 @@ def parse_index(file_stream):
     try:
         for l in lines:
             components = l.split(",")
-            rdi = IndexEntry(
-                components[0],
-                components[1],
-                components[2],
-                int(components[3]))
+            rdi = IndexEntry()
+            rdi.filename = components[0]
+            rdi.cached_name = components[1]
+            rdi.md5_checksum = components[2]
+            rdi.size_in_bytes = int(components[3])
+            if len(components) > 4:
+                rdi.compressed_size = int(components[4])
+            else:
+                rdi.compressed_size = 0
+
             index.append(rdi)
 
     except Exception:
@@ -18,8 +23,9 @@ def parse_index(file_stream):
 
 
 class IndexEntry(object):
-    def __init__(self, res_file_name, relative_url, md5_checksum, size_in_bytes):
-        self.filename = res_file_name
-        self.cached_name = relative_url
-        self.md5_checksum = md5_checksum
-        self.size_in_bytes = size_in_bytes
+    def __init__(self):
+        self.filename = ""
+        self.cached_name = ""
+        self.md5_checksum = ""
+        self.size_in_bytes = 0
+        self.compressed_size = 0
