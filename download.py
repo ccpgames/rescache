@@ -3,6 +3,8 @@ import urllib2
 import threading
 import time
 import Queue
+from checksum import calc_checksum
+from format_memory import format_memory
 
 import progress
 
@@ -12,7 +14,7 @@ def get_url_root():
     return 'http://res.eveonline.ccpgames.com'
 
 
-def DownloadResourceFile(target_url, target_path):
+def DownloadResourceFile(target_url, expected_checksum, target_path):
     try:
         contents = urllib2.urlopen(target_url)
     except urllib2.URLError:
@@ -21,6 +23,14 @@ def DownloadResourceFile(target_url, target_path):
     temp_path = target_path + ".tmp"
     with open(temp_path, "wb") as f:
         f.write(contents.read())
+
+    checksum_from_file = calc_checksum(temp_path)
+    if checksum_from_file != expected_checksum:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+        return False
 
     try:
         os.rename(temp_path, target_path)
@@ -39,7 +49,8 @@ class DownloadThread(threading.Thread):
         self.succeeded = 0
         self._stop = False
 
-    def process_file(self, relative_file_path, target_folder):
+    def process_file(self, file_entry, target_folder):
+        relative_file_path = file_entry.cached_name
         split_file_path = urllib2.posixpath.split(relative_file_path)
         target_path = os.path.join(target_folder, *split_file_path)
         target_url = urllib2.posixpath.join(get_url_root(), *split_file_path)
@@ -54,7 +65,7 @@ class DownloadThread(threading.Thread):
             except OSError:
                 pass
 
-        if DownloadResourceFile(target_url, target_path):
+        if DownloadResourceFile(target_url, file_entry.md5_checksum, target_path):
             self.succeeded += 1
         else:
             self.failed += 1
@@ -128,16 +139,24 @@ def scan_missing_files(index, res_folder):
     missing = 0
     scanned = 0
     missing_files = []
+    missing_bytes = 0
+    missing_bytes_on_disk = 0
     for entry in index:
         scanned += 1
-        progress.write("Scanned %6.1d of %6.1d files (%6.1d missing)\r" %
-                       (scanned, num_files, missing))
+        progress.write("%6.1d of %6.1d files (%6.1d missing - %10.10s - %10.10s on disk)\r" %
+                       (scanned, num_files, missing, format_memory(missing_bytes), format_memory(missing_bytes_on_disk)))
         filename = os.path.join(res_folder, entry.cached_name)
         if not os.path.exists(filename):
             missing += 1
-            missing_files.append(entry.cached_name)
+            missing_files.append(entry)
+            missing_bytes += entry.compressed_size
+            missing_bytes_on_disk += entry.size_in_bytes
 
     progress.clear()
+    print "%6.1d files missing - %10.10s - %10.10s on disk\r" % \
+          (missing, format_memory(missing_bytes), format_memory(missing_bytes_on_disk))
+    print
+
     return missing_files
 
 
