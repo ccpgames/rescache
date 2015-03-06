@@ -25,8 +25,12 @@ def set_shared_cache_folder(folder_path):
             raise ValueError("Could not create directory {}".format(folder_path))
     folder_path = os.path.normpath(folder_path) + os.sep
 
-    key_eveonline = _winreg.CreateKey(_winreg.aReg, "SOFTWARE\CCP\EVEONLINE")
+    key_eveonline = _winreg.CreateKey(_winreg.aReg, r"SOFTWARE\CCP\EVEONLINE")
     _winreg.SetValueEx(key_eveonline, "CACHEFOLDER", 0, _winreg.REG_SZ, folder_path)
 
-    key_eveprobe = _winreg.CreateKey(_winreg.aReg, "SOFTWARE\CCP\EVEPROBE")
+    key_eveprobe = _winreg.CreateKey(_winreg.aReg, r"SOFTWARE\CCP\EVEPROBE")
     _winreg.SetValueEx(key_eveprobe, "CACHEFOLDER", 0, _winreg.REG_SZ, folder_path)
+
+
+def get_index_path(hint):
+    return hint

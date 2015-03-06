@@ -7,7 +7,7 @@ import progress
 from move import move_cache
 from parse_index import parse_index
 
-from paths import get_shared_cache_folder
+from paths import get_shared_cache_folder, get_index_path
 from diff import diff_cache
 
 from verify import verify_cache
@@ -24,10 +24,11 @@ Run with -h (or --help) for help.
 
 def _get_index(args):
     try:
-        with open(args.index) as f:
+        index_path = get_index_path(args.index)
+        with open(index_path) as f:
             index = parse_index(f)
     except IOError:
-        print "Couldn't open index file: %s" % args.index
+        print "Couldn't open index file: %s" % index_path
         sys.exit(1)
     return index
 
