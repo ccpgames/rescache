@@ -33,13 +33,3 @@ def set_shared_cache_folder(folder_path):
 
     key_eveprobe = _winreg.CreateKey(_winreg.aReg, "SOFTWARE\CCP\EVEPROBE")
     _winreg.SetValueEx(key_eveprobe, "CACHEFOLDER", 0, _winreg.REG_SZ, folder_path)
-
-
-def get_res_folder():
-    cache_folder = get_shared_cache_folder()
-    if not cache_folder:
-        print "Shared cache folder location has not been set"
-        sys.exit(1)
-
-    res_folder = os.path.join(cache_folder, "ResFiles")
-    return res_folder
