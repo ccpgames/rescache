@@ -5,6 +5,7 @@ stream = None
 def write(msg):
     if stream:
         stream.write(msg)
+        stream.flush()
 
 def wait(msg, condition):
     num_dots = 0
