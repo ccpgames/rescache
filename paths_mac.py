@@ -2,11 +2,13 @@ import os
 
 
 def get_shared_cache_folder():
-    return "~/Library/Application Support/EVE Online/p_drive/Local Settings/Application Data/CCP/EVE/SharedCache"
+    home = os.path.expanduser('~/')
+    return home + "Library/Application Support/EVE Online/p_drive/Local Settings/Application Data/CCP/EVE/SharedCache"
 
 
 def set_shared_cache_folder(folder_path):
     pass
+
 
 def get_index_path(hint):
     if os.path.exists(hint):
