@@ -33,3 +33,5 @@ def verify_cache(index, res_folder):
     print "Verified %d files:" % num_files
     print "  %6.1d files corrupt" % corrupt
     print "  %6.1d files not yet downloaded" % missing
+
+    return corrupt, missing

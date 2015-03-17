@@ -21,10 +21,12 @@ rescache is a tool for verifying and managing the EVE shared resource cache.
 Run with -h (or --help) for help.
 """
 
+DEFAULT_INDEX_FILENAME = "resfileindex.txt"
 
-def _get_index(args):
+
+def _get_index(filename):
     try:
-        index_path = get_index_path(args.index)
+        index_path = get_index_path(filename)
         with open(index_path) as f:
             index = parse_index(f)
     except IOError:
@@ -41,40 +43,65 @@ def _get_res_folder(args):
 
 
 def verify_command(args):
-    verify_cache(_get_index(args), _get_res_folder(args))
+    verify_cache(_get_index(args.index), _get_res_folder(args))
 
 
 def diff_command(args):
-    diff_cache(_get_index(args), _get_res_folder(args))
+    diff_cache(_get_index(args.index), _get_res_folder(args))
 
 
 def purge_command(args):
-    purge_cache(_get_index(args), _get_res_folder(args))
+    purge_cache(_get_index(args.index), _get_res_folder(args))
 
 
 def download_command(args):
-    download_cache(_get_index(args), _get_res_folder(args))
+    download_cache(_get_index(args.index), _get_res_folder(args))
 
 
 def move_command(args):
     move_cache(args.cache, args.destination)
 
 
-def main():
-    if len(sys.argv) < 2:
-        print COMMAND_HELP_STRING
-        print "The current shared cache location is\n\n\t%s" % get_shared_cache_folder()
-        sys.exit()
+def run_interactive():
+    print "rescache is a tool for verifying and managing the EVE shared resource cache."
+    print
+    print "The current shared cache location is\n\t%s" % get_shared_cache_folder()
+    print
 
+    res_folder = os.path.join(get_shared_cache_folder(), "ResFiles")
+    index = _get_index(DEFAULT_INDEX_FILENAME)
+
+    print "Verifying cache integrity"
+    corrupt, missing = verify_cache(index, res_folder)
+    print
+
+    if corrupt:
+        print "%d corrupt files were deleted" % corrupt
+
+    if missing:
+        answer = raw_input("Would you like to download missing files now? (y/n)")
+        if answer.lower().startswith("y"):
+            download_cache(index, res_folder)
+
+    raw_input("Press ENTER to exit...")
+
+
+
+
+def main():
     progress.stream = sys.stdout
+
+    if len(sys.argv) < 2:
+        run_interactive()
+        sys.exit()
 
     parser = argparse.ArgumentParser(
         description="rescache is a tool for verifying and managing the EVE shared resource cache."
     )
     parser.add_argument(
         "-i", "--index",
-        default="resfileindex.txt",
-        help="The name of an index file to use - defaults to resfileindex.txt"
+        default=DEFAULT_INDEX_FILENAME,
+        help="The name of an index file to use - defaults to %s" % DEFAULT_INDEX_FILENAME
     )
     parser.add_argument(
         "-c", "--cache",
