@@ -1,8 +1,10 @@
+import gzip
 import os
 import urllib2
 import threading
 import time
 import Queue
+import StringIO
 from checksum import calc_checksum
 from format_memory import format_memory
 
@@ -18,11 +20,19 @@ def DownloadResourceFile(target_url, expected_checksum, target_path):
     try:
         contents = urllib2.urlopen(target_url)
     except urllib2.URLError:
-        return False
+        return False, "Couldn't open %s" % target_url
+
+    data = contents.read()
+    headers = contents.info()
+    if ('content-encoding' in headers.keys() and headers['content-encoding']=='gzip'):
+        sio = StringIO.StringIO(data)
+        gzipper = gzip.GzipFile(fileobj=sio)
+        data = gzipper.read()
 
     temp_path = target_path + ".tmp"
+
     with open(temp_path, "wb") as f:
-        f.write(contents.read())
+        f.write(data)
 
     checksum_from_file = calc_checksum(temp_path)
     if checksum_from_file != expected_checksum:
@@ -30,14 +40,14 @@ def DownloadResourceFile(target_url, expected_checksum, target_path):
             os.remove(temp_path)
         except OSError:
             pass
-        return False
+        return False, "Checksum didn't match"
 
     try:
         os.rename(temp_path, target_path)
     except OSError:
-        pass
+        return False, "Failed to rename temp file to final name"
 
-    return True
+    return True, "OK"
 
 
 class DownloadThread(threading.Thread):
@@ -47,6 +57,7 @@ class DownloadThread(threading.Thread):
         self.file_queue = file_queue
         self.failed = 0
         self.succeeded = 0
+        self.messages = []
         self._stop = False
 
     def process_file(self, file_entry, target_folder):
@@ -65,10 +76,12 @@ class DownloadThread(threading.Thread):
             except OSError:
                 pass
 
-        if DownloadResourceFile(target_url, file_entry.md5_checksum, target_path):
+        status, message = DownloadResourceFile(target_url, file_entry.md5_checksum, target_path)
+        if status:
             self.succeeded += 1
         else:
             self.failed += 1
+            self.messages.append(message)
 
     def stop(self):
         self._stop = True
@@ -122,6 +135,8 @@ def download_missing_files(res_folder, files_to_download):
             t.join()
             num_failed += t.failed
             num_succeeded += t.succeeded
+            if t.messages:
+                print t.messages
 
         return num_succeeded, num_failed
 
